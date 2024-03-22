@@ -3,8 +3,11 @@
 # Set the namespace you want to monitor
 NAMESPACE="doi-dbt"
 
-# Loop indefinitely
-while true; do
+# Flag to check if a pod has been found
+found=0
+
+# Loop until a pod is found
+while [ $found -eq 0 ]; do
   echo "Checking for pods created in the last 5 minutes in namespace: $NAMESPACE"
   
   # Get all pods in the namespace, outputting their name and creation timestamp
@@ -16,21 +19,27 @@ while true; do
     # Calculate the difference in seconds
     DIFF=$((CURRENT_TIME - POD_TIME))
     
-    # If the difference is 300 seconds (5 minutes) or less, print the pod name and get logs
-    if [ $DIFF -le 300 ]; then
+    # If the difference is 300 seconds (5 minutes) or less, and no pod has been found yet
+    if [ $DIFF -le 300 ] && [ $found -eq 0 ]; then
       echo "Pod created in the last 5 minutes: $NAME"
       echo "Fetching logs for $NAME..."
       
       # Fetch and print the logs of the pod
-      # You might want to adjust the log options depending on your needs
       kubectl logs $NAME -n $NAMESPACE
       
-      echo "--------------------------------------------------"
+      # Set found flag to 1 and break the loop
+      found=1
+      break
     fi
   done
   
-  # Wait for a specified interval before the next check
-  # Adjust the sleep duration to control how frequently you check for new pods
-  echo "Waiting for the next check..."
+  # If a pod has been found, break the outer while loop
+  if [ $found -eq 1 ]; then
+    echo "Logs emitted. Exiting script."
+    break
+  fi
+  
+  # Wait for a specified interval before the next check if no pod is found
+  echo "No pod found. Waiting for the next check..."
   sleep 60
 done

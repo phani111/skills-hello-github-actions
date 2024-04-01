@@ -7,7 +7,7 @@ SERVER_KEY="server.key"
 OUTPUT_JSON="certs_keys.json"
 
 # GCP configurations
-PROJECT_ID="flash-keel-412418"
+PROJECT_ID="project"
 SECRET_NAME="my-secret"
 SECRET_VERSION="latest" # Use "latest" for always updating the same secret, or automate versioning as needed
 

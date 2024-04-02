@@ -1,0 +1,30 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: script-runner-cronjob
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+          - name: init-script-checker
+            image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+            command: ["/bin/bash", "-c", "ls -la /scripts/"]
+            volumeMounts:
+            - name: script-volume
+              mountPath: "/scripts"
+          containers:
+          - name: script-runner
+            image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+            command: ["/bin/bash", "/scripts/script.sh"]
+            volumeMounts:
+            - name: script-volume
+              mountPath: "/scripts"
+          volumes:
+          - name: script-volume
+            configMap:
+              name: script-configmap
+              defaultMode: 0777
+          restartPolicy: OnFailure

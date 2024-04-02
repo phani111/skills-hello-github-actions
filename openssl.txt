@@ -1,0 +1,21 @@
+Generate the CA's private key:
+
+openssl genrsa -out ca.key 4096
+
+Create the CA certificate (ca.cert) using the CA's private key:
+
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 1024 -out ca.cert
+
+Generate the server's private key (server.key):
+openssl genrsa -out server.key 2048
+
+
+Create the server certificate (server.cert) signed by the CA:
+
+openssl req -new -key server.key -out server.csr
+
+
+Next, sign the CSR with your CA key to generate the server certificate:
+
+openssl x509 -req -in server.csr -CA ca.cert -CAkey ca.key -CAcreateserial -out server.cert -days 365 -sha256
+

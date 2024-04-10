@@ -13,6 +13,44 @@ from airflow.utils.decorators import cached_property
 from airflow.providers.google.cloud.utils.gke_cluster_auth_details import GKEClusterAuthDetails
 
 
+class GKEClusterAuthDetails:
+    """
+    Helper for fetching information about cluster for connecting.
+
+    :param cluster_name: The name of the Google Kubernetes Engine cluster.
+    :param project_id: The Google Developers Console project id.
+    :param use_internal_ip: Use the internal IP address as the endpoint.
+    :param cluster_hook: airflow hook for working with kubernetes cluster.
+    """
+
+    def __init__(
+        self,
+        cluster_name,
+        project_id,
+        use_internal_ip,
+        cluster_hook,
+    ):
+        self.cluster_name = cluster_name
+        self.project_id = project_id
+        self.use_internal_ip = use_internal_ip
+        self.cluster_hook = cluster_hook
+        self._cluster_url = None
+        self._ssl_ca_cert = None
+
+    def fetch_cluster_info(self) -> tuple[str, str]:
+        """Fetch cluster info for connecting to it."""
+        cluster = self.cluster_hook.get_cluster(
+            name=self.cluster_name,
+            project_id=self.project_id,
+        )
+
+        if not self.use_internal_ip:
+            self._cluster_url = f"https://{cluster.endpoint}"
+        else:
+            self._cluster_url = f"https://{cluster.private_cluster_config.private_endpoint}"
+        self._ssl_ca_cert = cluster.master_auth.cluster_ca_certificate
+        return self._cluster_url, self._ssl_ca_cert
+
 class GKEDeployPodOperator(GoogleCloudBaseOperator):
     """
     Installs a pod manifest file inside a GKE cluster.

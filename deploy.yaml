@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: your-app
+  template:
+    metadata:
+      labels:
+        app: your-app
+    spec:
+      initContainers:
+      - name: init-container
+        image: init-image:tag
+        command: ["sh", "-c", "echo Init container running; sleep 5"]
+        # Add volume mounts for the init container if needed
+        volumeMounts:
+        - name: init-volume
+          mountPath: /init-path
+      containers:
+      - name: your-container
+        image: your-image:tag
+        ports:
+        - containerPort: 80
+        # Add volume mounts for the main container if needed
+        volumeMounts:
+        - name: main-volume
+          mountPath: /main-path
+      volumes:
+      - name: init-volume
+        emptyDir: {}
+      - name: main-volume
+        emptyDir: {}

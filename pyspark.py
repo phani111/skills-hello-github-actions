@@ -8,7 +8,7 @@ from typing import Dict, Any
 
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType, ArrayType
 from google.cloud import bigquery
 
 # Configure logging
@@ -28,6 +28,8 @@ TYPE_MAPPING: Dict[str, Any] = {
     "INT": IntegerType(),
     "FLOAT": FloatType(),
     "DATE": DateType(),
+    "ARRAY<FLOAT>": ArrayType(FloatType()),
+    # Add more mappings as needed
 }
 
 def create_spark_session() -> SparkSession:
@@ -37,10 +39,20 @@ def create_spark_session() -> SparkSession:
 def read_schema_csv(file_path: str) -> pd.DataFrame:
     """Read the schema information from a CSV file."""
     try:
-        return pd.read_csv(file_path, sep='|', encoding='ISO-8859-1', error_bad_lines=False)
+        df = pd.read_csv(file_path, sep='|', encoding='ISO-8859-1', error_bad_lines=False)
+        if df['isnullable'].dtype != bool:
+            df['isnullable'] = df['isnullable'].astype(bool)
+        return df
     except Exception as e:
         logger.error(f"Error reading schema CSV: {e}")
         raise
+
+def get_data_type(type_string: str) -> Any:
+    """Convert string data type to Spark data type, including array types."""
+    if type_string.upper().startswith("ARRAY<"):
+        inner_type = type_string[6:-1].strip().upper()
+        return ArrayType(TYPE_MAPPING.get(inner_type, StringType()))
+    return TYPE_MAPPING.get(type_string.upper(), StringType())
 
 def create_spark_schema(schema_df: pd.DataFrame) -> StructType:
     """Create a Spark schema from the CSV schema information."""
@@ -48,8 +60,8 @@ def create_spark_schema(schema_df: pd.DataFrame) -> StructType:
     for _, row in schema_df.iterrows():
         field = StructField(
             name=row['src_column_name'],
-            dataType=TYPE_MAPPING.get(row['source_datatype'], StringType()),
-            nullable=(row['isnullable'].lower() == 'true')
+            dataType=get_data_type(row['source_datatype']),
+            nullable=row['isnullable']
         )
         fields.append(field)
     return StructType(fields)

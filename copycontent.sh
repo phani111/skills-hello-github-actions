@@ -14,11 +14,20 @@ for file in *.properties
 do
     # Skip the source file
     if [ "$file" != "$source_file" ]; then
-        echo "Copying content to $file"
+        echo "Processing $file"
         
-        # Copy the content of the source file to the current file
+        # Copy the entire content of the source file to the current file
         cp "$source_file" "$file"
+        
+        # Get the filename without extension
+        filename_without_ext="${file%.properties}"
+        
+        # Update the specific lines
+        sed -i "s/^mappingfilename=.*/mappingfilename=${filename_without_ext}.csv/" "$file"
+        sed -i "s/^filename=.*/filename=${file}/" "$file"
+        
+        echo "Updated $file"
     fi
 done
 
-echo "Done copying to all .properties files."
+echo "Done processing all .properties files."

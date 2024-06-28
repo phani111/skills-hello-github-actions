@@ -23,8 +23,11 @@ do
         filename_without_ext="${file%.properties}"
         
         # Update the specific lines
-        sed -i "s/^mappingfilename=.*/mappingfilename=${filename_without_ext}.csv/" "$file"
-        sed -i "s/^filename=.*/filename=${file}/" "$file"
+        awk -v csv="${filename_without_ext}.csv" -v prop="$file" '
+        /^mappingfilename=/ {print "mappingfilename=" csv; next}
+        /^filename=/ {print "filename=" prop; next}
+        {print}
+        ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
         
         echo "Updated $file"
     fi

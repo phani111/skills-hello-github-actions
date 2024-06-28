@@ -24,8 +24,12 @@ do
         
         # Update the specific lines
         awk -v csv="${filename_without_ext}.csv" -v prop="$file" '
-        /^mappingfilename=/ {print "mappingfilename=" csv; next}
-        /^filename=/ {print "filename=" prop; next}
+        $0 ~ /^[[:space:]]*mappingfilename[[:space:]]*=/ {
+            sub(/=.*/, "=" csv)
+        }
+        $0 ~ /^[[:space:]]*filename[[:space:]]*=/ {
+            sub(/=.*/, "=" prop)
+        }
         {print}
         ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
         

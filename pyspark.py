@@ -8,8 +8,7 @@ from typing import Dict, Any
 
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from pyspark.sql.types import StringType, IntegerType, FloatType, DateType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DateType
 from google.cloud import bigquery
 
 # Configure logging
@@ -43,27 +42,25 @@ def read_schema_csv(file_path: str) -> pd.DataFrame:
         logger.error(f"Error reading schema CSV: {e}")
         raise
 
-def read_orc_file(spark: SparkSession, file_path: str):
-    """Read an ORC file without a predefined schema."""
+def create_spark_schema(schema_df: pd.DataFrame) -> StructType:
+    """Create a Spark schema from the CSV schema information."""
+    fields = []
+    for _, row in schema_df.iterrows():
+        field = StructField(
+            name=row['src_column_name'],
+            dataType=TYPE_MAPPING.get(row['source_datatype'], StringType()),
+            nullable=(row['isnullable'].lower() == 'true')
+        )
+        fields.append(field)
+    return StructType(fields)
+
+def read_orc_file(spark: SparkSession, file_path: str, schema: StructType):
+    """Read an ORC file with the provided schema."""
     try:
-        return spark.read.orc(file_path)
+        return spark.read.schema(schema).orc(file_path)
     except Exception as e:
         logger.error(f"Error reading ORC file: {e}")
         raise
-
-def apply_schema(df, schema_df: pd.DataFrame):
-    """Apply the schema from the CSV to the Spark DataFrame."""
-    # Rename columns
-    for i, new_name in enumerate(schema_df['target_column_name']):
-        df = df.withColumnRenamed(f"_c{i}", new_name)
-    
-    # Cast columns to correct data type
-    for _, row in schema_df.iterrows():
-        col_name = row['target_column_name']
-        data_type = TYPE_MAPPING.get(row['source_datatype'], StringType())
-        df = df.withColumn(col_name, col(col_name).cast(data_type))
-    
-    return df
 
 def read_bigquery_table(spark: SparkSession, project: str, dataset: str, table: str):
     """Read data from a BigQuery table into a Spark DataFrame."""
@@ -102,11 +99,11 @@ def main():
     schema_df = read_schema_csv(INPUT_SCHEMA_PATH)
     logger.info("Schema information loaded successfully")
 
-    orc_df = read_orc_file(spark, INPUT_ORC_PATH)
-    logger.info("ORC file read successfully")
+    spark_schema = create_spark_schema(schema_df)
+    logger.info("Spark schema created successfully")
 
-    orc_df = apply_schema(orc_df, schema_df)
-    logger.info("Schema applied successfully to ORC data")
+    orc_df = read_orc_file(spark, INPUT_ORC_PATH, spark_schema)
+    logger.info("ORC file read successfully with applied schema")
 
     bq_df = read_bigquery_table(spark, BIGQUERY_PROJECT, BIGQUERY_DATASET, BIGQUERY_TABLE)
     logger.info("BigQuery table read successfully")
@@ -116,35 +113,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-Key changes and additions:
-
-We've added a new function read_bigquery_table to read data from BigQuery into a Spark DataFrame.
-
-We've added a compare_dataframes function that uses the subtract operation to find differences between the two DataFrames.
-
-In the main function, we now:
-
-Read the ORC file and apply the schema
-Read the corresponding BigQuery table
-Compare the two DataFrames
-We've removed the write_orc_file function as we're no longer writing the data back to ORC.
-
-We've added configuration variables for the BigQuery project, dataset, and table.
-
-To use this script, you'll need to:
-
-Ensure you have the necessary permissions to read from the BigQuery table.
-Install and configure the BigQuery connector for Spark. You can do this by including the appropriate JAR file when starting your Spark session.
-Set the correct values for BIGQUERY_PROJECT, BIGQUERY_DATASET, and BIGQUERY_TABLE in the configuration section.
-This script will read both the ORC file and the BigQuery table, then compare them using the subtract operation. It will report the number of records that differ between the two sources and show a sample of these differences.
-
-
-
-Try again with different context
-Add context...
-Avatar for phani111-rsqnq
- i have a json config to be passed to this pyspark code 
-

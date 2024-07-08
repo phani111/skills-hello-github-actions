@@ -39,10 +39,22 @@ with models.DAG(
 
         table_task_groups.append(tg)
 
-    final_task = bash_operator.BashOperator(
+    # Final Task to summarize failed tables
+    def summarize_failures(**kwargs):
+        ti = kwargs['ti']
+        failed_tables = ti.xcom_pull(key='failed_table', task_ids=[f'process_{table}.pig_task_{table}' for table in TABLES])
+        failed_tables = [table for table in failed_tables if table]  # Filter out None values
+        if failed_tables:
+            logging.info(f"The following tables failed to load: {', '.join(failed_tables)}")
+        else:
+            logging.info("All tables loaded successfully.")
+
+    final_task = PythonOperator(
         task_id='final_task',
-        bash_command='echo "All tables processed successfully"',
-        on_failure_callback=task_failure_callback,  # Add failure callback
+        python_callable=summarize_failures,
+        provide_context=True,
+        trigger_rule=TriggerRule.ALL_DONE,  # Ensure this task runs regardless of upstream task outcomes
     )
 
+    # Ensure all task groups are completed before running the final task
     table_task_groups >> final_task

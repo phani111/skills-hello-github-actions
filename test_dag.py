@@ -1,3 +1,12 @@
+
+# --- Failure Callback ---
+def task_failure_callback(context):
+    task_instance = context['task_instance']
+    table_name = task_instance.task_id.split('_')[-1]
+    log_text = f"Task {task_instance.task_id} for table {table_name} failed."
+    logging.error(log_text)
+    task_instance.xcom_push(key='failed_table', value=table_name)
+
 # Define dag
 with models.DAG(
     dag_id='ap-verona-mi-deposits_history',

@@ -1,4 +1,4 @@
- --- Failure Callback ---
+# --- Failure Callback ---
 def task_failure_callback(context, table_name):
     task_instance = context['task_instance']
     task_id = task_instance.task_id
@@ -31,7 +31,7 @@ with models.DAG(
                 job=create_pyspark_job(table),
                 project_id=PROJECT_ID,
                 region=REGION,
-                on_failure_callback=lambda context: task_failure_callback(context, table),  # Pass table name
+                on_failure_callback=lambda context, t=table: task_failure_callback(context, t),  # Pass table name
             )
 
             pig_task = dataproc.DataprocSubmitJobOperator(
@@ -40,13 +40,13 @@ with models.DAG(
                 project_id=PROJECT_ID,
                 region=REGION,
                 asynchronous=False,
-                on_failure_callback=lambda context: task_failure_callback(context, table),  # Pass table name
+                on_failure_callback=lambda context, t=table: task_failure_callback(context, t),  # Pass table name
             )
 
             pig_ok = bash_operator.BashOperator(
                 task_id=f'pig_ok_{table}',
                 bash_command=f'echo verona {table} history successful',
-                on_failure_callback=lambda context: task_failure_callback(context, table),  # Pass table name
+                on_failure_callback=lambda context, t=table: task_failure_callback(context, t),  # Pass table name
             )
 
             gcs_bq_cleaning >> pig_task >> pig_ok
@@ -55,8 +55,18 @@ with models.DAG(
 
     # Final Task to summarize failed tables
     def summarize_failures(ti, **kwargs):
-        failed_tables = ti.xcom_pull(key='failed_table', task_ids=[f'process_{table}.pig_task_{table}' for table in TABLES])
-        failed_tables = [table for table in failed_tables if table]  # Filter out None values
+        failed_tables = []
+        for table in TABLES:
+            task_ids = [
+                f'process_{table}.bq_full_refresh_{table}',
+                f'process_{table}.pig_task_{table}',
+                f'process_{table}.pig_ok_{table}'
+            ]
+            for task_id in task_ids:
+                failed_table = ti.xcom_pull(key='failed_table', task_ids=task_id)
+                if failed_table:
+                    failed_tables.append(failed_table)
+        failed_tables = list(set(failed_tables))  # Remove duplicates
         if failed_tables:
             logging.info(f"The following tables failed to load: {', '.join(failed_tables)}")
         else:

@@ -1,5 +1,9 @@
+from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, DecimalType, BooleanType, DateType, TimestampType
 import pandas as pd
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("CustomSchemaExample").getOrCreate()
 
 def create_custom_schema(input_data):
     type_mapping = {
@@ -32,12 +36,27 @@ mapping_input = [
     ["hire_date", "date", "true"]
 ]
 
-schema_from_list = create_custom_schema(mapping_input)
-print("Schema from list:")
-print(schema_from_list)
+schema = create_custom_schema(mapping_input)
 
-# Example usage with a CSV file:
-csv_file_path = 'path/to/your/schema_mapping.csv'
-schema_from_csv = create_custom_schema(csv_file_path)
-print("\nSchema from CSV:")
-print(schema_from_csv)
+# Simulate reading data from a partitioned file where some partitions might be missing certain columns
+data = [
+    {"name": "Alice", "age": 30, "hire_date": "2021-01-01"},
+    {"name": "Bob", "salary": 100000.00, "hire_date": "2020-05-15"}
+]
+
+# Create a DataFrame without specifying the schema to simulate reading from a partitioned file
+df = spark.createDataFrame(data)
+
+# Show the DataFrame without the custom schema
+print("DataFrame without custom schema:")
+df.show()
+
+# Read the DataFrame with the custom schema
+df_with_schema = spark.createDataFrame(df.rdd, schema)
+
+# Show the DataFrame with the custom schema
+print("DataFrame with custom schema:")
+df_with_schema.show()
+
+# Stop the Spark session
+spark.stop()

@@ -43,7 +43,7 @@ scala_params="${environmentConfig} ${masterURL} ${persistLayer1}"
 
 # Your existing gcloud command with the Scala parameters appended
 gcloud dataproc jobs submit spark --cluster=${dataprocClusterName} \
-    --region=${region} --class="com.lloydsbanking.insfin.testing.app.testingMain" \
+    --region=${region} --class="app.testingMain" \
     --jars=${mainJarFile},gs://spark-lib/bigquery/spark-bigquery-with-dependencies_2.12-0.31.1.jar,gs://spark-lib/spanner/spark-spanner-with-dependencies_2.12-0.40.0.jar \
     --labels="dataclassification=confidential" \
     --region=europe-west2 \
